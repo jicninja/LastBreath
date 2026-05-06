@@ -1,0 +1,273 @@
+# Last Breath - Architecture Registry
+#
+# Single source of truth for IDs. Any agent that creates, renames, or
+# deletes a system/class/config MUST update this file in the same change.
+#
+# ID convention:
+#   PILLAR-NN             design pillars (GDD)
+#   MECH-<NAME>           mechanics (GDD)
+#   SCENE-<NAME>          playable scenes (GDD)
+#   SYS-<NAME>            systems (SDD)
+#   CLASS-<Name>          concrete classes (TDD)
+#   CFG-<NAME>            configuration ScriptableObjects
+#   EVT-<name>            shared events
+#
+# Once created, an ID is never renamed. If something stops existing,
+# status: deprecated and the entry stays.
+
+version: 1
+project: last-breath-poc
+engine: unity
+render_pipeline: urp
+
+# ---------------------------------------------------------------------------
+pillars:
+  - id: PILLAR-01
+    title: Oxygen is time, tension, and decision
+    kind: experience
+    doc: docs/gdd/last-breath-poc-gdd.md#1-oxygen-is-time-tension-and-decision
+    status: active
+  - id: PILLAR-02
+    title: The threat is never visually confirmed
+    kind: experience
+    doc: docs/gdd/last-breath-poc-gdd.md#2-the-threat-is-never-visually-confirmed
+    status: active
+  - id: PILLAR-03
+    title: Solitude must feel playable
+    kind: experience
+    doc: docs/gdd/last-breath-poc-gdd.md#3-solitude-must-feel-playable
+    status: active
+  - id: PILLAR-04
+    title: Exploration with clear risk
+    kind: experience
+    doc: docs/gdd/last-breath-poc-gdd.md#4-exploration-with-clear-risk
+    status: active
+  - id: PILLAR-05
+    title: Minimal scope, high impact
+    kind: production
+    doc: docs/gdd/last-breath-poc-gdd.md#5-minimal-scope-high-impact
+    status: active
+
+# ---------------------------------------------------------------------------
+mechanics:
+  - id: MECH-OXIGENO
+    title: Oxygen
+    pillars: [PILLAR-01, PILLAR-04]
+    doc: docs/gdd/last-breath-poc-gdd.md#oxygen
+    implemented_by: [SYS-OXYGEN]
+    config: [CFG-OXYGEN]
+    status: deprecated
+    replaced_by: MECH-OXYGEN
+  - id: MECH-AGITACION
+    title: Agitation
+    pillars: [PILLAR-01, PILLAR-02]
+    doc: docs/gdd/last-breath-poc-gdd.md#agitation
+    implemented_by: [SYS-AGITATION]
+    config: [CFG-AGITATION]
+    status: deprecated
+    replaced_by: MECH-AGITATION
+  - id: MECH-PRESENCIA
+    title: Invisible presence
+    pillars: [PILLAR-02, PILLAR-03]
+    doc: docs/gdd/last-breath-poc-gdd.md#invisible-presence
+    implemented_by: [SYS-PRESENCE]
+    config: [CFG-PRESENCE-EVENT]
+    status: deprecated
+    replaced_by: MECH-PRESENCE
+  - id: MECH-EXPLORACION
+    title: Exploration
+    pillars: [PILLAR-04]
+    doc: docs/gdd/last-breath-poc-gdd.md#exploration
+    implemented_by: [SYS-OBJECTIVE, SYS-INTERACTOR]
+    status: deprecated
+    replaced_by: MECH-INTERACTION
+  - id: MECH-ILUMINACION
+    title: Lighting
+    pillars: [PILLAR-03]
+    doc: docs/gdd/last-breath-poc-gdd.md#lighting
+    implemented_by: [SYS-LIGHTVFX]
+    status: deprecated
+    deprecation_reason: lighting is a presentation channel handled by SYS-LIGHTVFX and SYS-PRESENCE; the player has no verbs against environmental lighting.
+  - id: MECH-LINTERNA
+    title: Flashlight
+    pillars: [PILLAR-03, PILLAR-04]
+    doc: docs/gdd/last-breath-poc-gdd.md#flashlight
+    implemented_by: [SYS-PLAYER]
+    status: deprecated
+    replaced_by: MECH-FLASHLIGHT
+  - id: MECH-OXYGEN
+    title: Oxygen
+    kind: experience
+    pillars: [PILLAR-01, PILLAR-04]
+    doc: docs/gdd/last-breath-poc-gdd.md#oxygen
+    implemented_by: [SYS-OXYGEN]
+    config: [CFG-OXYGEN]
+    status: active
+  - id: MECH-AGITATION
+    title: Agitation
+    kind: experience
+    pillars: [PILLAR-01, PILLAR-02]
+    doc: docs/gdd/last-breath-poc-gdd.md#agitation
+    implemented_by: [SYS-AGITATION]
+    config: [CFG-AGITATION]
+    status: active
+  - id: MECH-PRESENCE
+    title: Invisible presence
+    kind: experience
+    pillars: [PILLAR-02, PILLAR-03]
+    doc: docs/gdd/last-breath-poc-gdd.md#invisible-presence
+    implemented_by: [SYS-PRESENCE]
+    config: [CFG-PRESENCE-EVENT]
+    status: active
+  - id: MECH-INTERACTION
+    title: Interaction
+    kind: experience
+    pillars: [PILLAR-04]
+    doc: docs/gdd/last-breath-poc-gdd.md#exploration
+    implemented_by: [SYS-INTERACTOR]
+    status: active
+  - id: MECH-FLASHLIGHT
+    title: Flashlight
+    kind: experience
+    pillars: [PILLAR-03, PILLAR-04]
+    doc: docs/gdd/last-breath-poc-gdd.md#flashlight
+    implemented_by: [SYS-PLAYER]
+    status: active
+
+# ---------------------------------------------------------------------------
+scenes:
+  - id: SCENE-CORREDOR-C7
+    title: Corridor C-7
+    target_duration_seconds: 240
+    doc: docs/gdd/last-breath-poc-gdd.md#first-playable-scene
+    status: active
+
+# ---------------------------------------------------------------------------
+systems:
+  - id: SYS-GAME
+    name: GameManager
+    doc: docs/sdd/last-breath-poc-sdd.md#gamemanager
+    classes: [CLASS-GameManager, CLASS-PocCheckpointController]
+    publishes: [EVT-game-state-changed]
+    subscribes: []
+  - id: SYS-PLAYER
+    name: PlayerController
+    doc: docs/sdd/last-breath-poc-sdd.md#playercontroller
+    classes: [CLASS-PlayerController, CLASS-PlayerState]
+    publishes: []
+    subscribes: [EVT-oxygen-changed, EVT-agitation-changed]
+  - id: SYS-OXYGEN
+    name: OxygenSystem
+    doc: docs/sdd/last-breath-poc-sdd.md#oxygensystem
+    classes: [CLASS-OxygenSystem]
+    config: [CFG-OXYGEN]
+    publishes: [EVT-oxygen-changed, EVT-oxygen-depleted]
+    subscribes: [EVT-zone-changed, EVT-agitation-changed]
+  - id: SYS-AGITATION
+    name: AgitationSystem
+    doc: docs/sdd/last-breath-poc-sdd.md#agitationsystem
+    classes: [CLASS-AgitationSystem]
+    config: [CFG-AGITATION]
+    publishes: [EVT-agitation-changed]
+    subscribes: [EVT-presence-event-fired, EVT-zone-changed]
+  - id: SYS-PRESENCE
+    name: PresenceDirector
+    doc: docs/sdd/last-breath-poc-sdd.md#presencedirector
+    classes:
+      - CLASS-PresenceDirector
+      - CLASS-PresenceEventTrigger
+      - CLASS-PresenceAgitationTrigger
+      - CLASS-LightFlickerEffect
+      - CLASS-GlitchPulseEffect
+    config: [CFG-PRESENCE-EVENT]
+    publishes: [EVT-presence-event-fired]
+    subscribes: [EVT-zone-changed, EVT-agitation-changed]
+  - id: SYS-INTERACTOR
+    name: PlayerInteractor
+    doc: docs/sdd/last-breath-poc-sdd.md#playerinteractor
+    classes:
+      - CLASS-PlayerInteractor
+      - CLASS-IInteractable
+      - CLASS-OxygenStationInteractable
+      - CLASS-PickupInteractable
+      - CLASS-PanelInteractable
+    publishes: [EVT-interaction-completed]
+    subscribes: []
+  - id: SYS-ENVIRONMENT
+    name: EnvironmentSystem
+    doc: docs/sdd/last-breath-poc-sdd.md#environmentsystem
+    classes: [CLASS-EnvironmentSystem, CLASS-EnvironmentZoneTrigger]
+    publishes: [EVT-zone-changed]
+    subscribes: []
+  - id: SYS-OBJECTIVE
+    name: ObjectiveSystem
+    doc: docs/sdd/last-breath-poc-sdd.md#objectivesystem
+    classes: [CLASS-ObjectiveSystem]
+    config: [CFG-OBJECTIVE]
+    publishes: [EVT-objective-completed]
+    subscribes: [EVT-interaction-completed]
+  - id: SYS-HUD
+    name: HudController
+    doc: docs/sdd/last-breath-poc-sdd.md#hudcontroller
+    classes: [CLASS-HudController, CLASS-DebugOverlay]
+    publishes: []
+    subscribes: [EVT-oxygen-changed, EVT-agitation-changed, EVT-objective-completed]
+  - id: SYS-AUDIO
+    name: AudioManager
+    doc: docs/sdd/last-breath-poc-sdd.md#audiomanager
+    classes: [CLASS-AudioManager]
+    publishes: []
+    subscribes: [EVT-agitation-changed, EVT-presence-event-fired, EVT-oxygen-depleted]
+  - id: SYS-LIGHTVFX
+    name: LightingAndVFXController
+    doc: docs/sdd/last-breath-poc-sdd.md#lightingandvfxcontroller
+    classes: [CLASS-LightingAndVFXController]
+    publishes: []
+    subscribes: [EVT-presence-event-fired, EVT-agitation-changed]
+
+# ---------------------------------------------------------------------------
+configs:
+  - id: CFG-OXYGEN
+    name: OxygenConfig
+    type: ScriptableObject
+    doc: docs/tdd/last-breath-poc-tdd.md#oxygenconfig
+  - id: CFG-AGITATION
+    name: AgitationConfig
+    type: ScriptableObject
+    doc: docs/tdd/last-breath-poc-tdd.md#agitationconfig
+  - id: CFG-PRESENCE-EVENT
+    name: PresenceEventDefinition
+    type: ScriptableObject
+    doc: docs/tdd/last-breath-poc-tdd.md#presenceeventdefinition
+  - id: CFG-OBJECTIVE
+    name: ObjectiveDefinition
+    type: ScriptableObject
+    doc: docs/sdd/last-breath-poc-sdd.md#objectivedefinition
+
+# ---------------------------------------------------------------------------
+# Shared events. Abbreviated payload; details in SDD.
+events:
+  - id: EVT-game-state-changed
+    publisher: SYS-GAME
+    payload: { state: enum }
+  - id: EVT-oxygen-changed
+    publisher: SYS-OXYGEN
+    payload: { current: float, max: float }
+  - id: EVT-oxygen-depleted
+    publisher: SYS-OXYGEN
+    payload: {}
+  - id: EVT-agitation-changed
+    publisher: SYS-AGITATION
+    payload: { value: float }
+  - id: EVT-presence-event-fired
+    publisher: SYS-PRESENCE
+    payload: { event_id: string, intensity: float }
+  - id: EVT-zone-changed
+    publisher: SYS-ENVIRONMENT
+    payload: { zone: enum }
+  - id: EVT-interaction-completed
+    publisher: SYS-INTERACTOR
+    payload: { interactable_id: string }
+  - id: EVT-objective-completed
+    publisher: SYS-OBJECTIVE
+    payload: { objective_id: string }

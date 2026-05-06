@@ -1,0 +1,11 @@
+# expected_rule_id: PLAN-ADHERENCE-OUT-OF-SCOPE
+# applies_under: src/Assets/_Project/UI/
+# active_plan: docs/plans/NNN-foo-only.md (touches Systems/Foo*; does not declare UI/* in scope)
+# why: Diff modifies a file outside the active plan's declared scope.
+--- a/src/Assets/_Project/UI/SettingsPanel.cs
++++ b/src/Assets/_Project/UI/SettingsPanel.cs
+@@ -1,5 +1,8 @@
+ public class SettingsPanel : MonoBehaviour
+ {
++    public bool experimentalToggle;
+ }

@@ -1,0 +1,14 @@
+systems:
+  - id: SYS-{{NAME}}
+    name: {{Name}}System
+    doc: docs/sdd/systems/{{name-kebab}}.md
+    classes: [CLASS-{{Name}}System]
+    config: [CFG-{{NAME}}]
+    publishes: {{publishes}}
+    subscribes: {{subscribes}}
+
+configs:
+  - id: CFG-{{NAME}}
+    name: {{Name}}Config
+    type: ScriptableObject
+    doc: docs/tdd/classes/{{Name}}System.md#{{name-kebab}}config

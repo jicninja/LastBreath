@@ -1,0 +1,12 @@
+# expected_rule_id: GAMEPLAY-CODE-NO-FINDOBJECTOFTYPE
+# applies_under: src/Assets/_Project/Systems/
+# why: FindObjectOfType is forbidden in system code; allowed only in Awake of root managers.
+--- a/src/Assets/_Project/Systems/FooSystem.cs
++++ b/src/Assets/_Project/Systems/FooSystem.cs
+@@ -10,6 +10,9 @@ public class FooSystem : MonoBehaviour
+     private void Update()
+     {
++        var bar = FindObjectOfType<BarSystem>();
++        bar.DoThing();
+     }
+ }

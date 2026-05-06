@@ -1,0 +1,24 @@
+mechanics:
+  - id: MECH-{{NAME}}
+    title: {{Name}}
+    kind: experience
+    pillars: [{{pillars}}]
+    doc: docs/gdd/mechanics/{{name-kebab}}.md
+    implemented_by: [SYS-{{NAME}}]
+    config: [CFG-{{NAME}}]
+    status: active
+
+systems:
+  - id: SYS-{{NAME}}
+    name: {{Name}}System
+    doc: docs/sdd/systems/{{name-kebab}}.md
+    classes: [CLASS-{{Name}}System]
+    config: [CFG-{{NAME}}]
+    publishes: []
+    subscribes: []
+
+configs:
+  - id: CFG-{{NAME}}
+    name: {{Name}}Config
+    type: ScriptableObject
+    doc: docs/tdd/classes/{{Name}}System.md#{{name-kebab}}config

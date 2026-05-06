@@ -1,0 +1,19 @@
+# expected_rule_id: UNITY-PATTERN-MONOBEHAVIOUR-SPLIT
+# applies_under: src/Assets/_Project/Systems/
+# why: Numeric formula computed inside a MonoBehaviour.Update() with no plain-C# logic class extracted; per docs/process/unity-patterns.md §2 (monobehaviour-split), formula-bearing logic must live in a plain C# class with the MonoBehaviour acting as a thin adapter.
+--- a/src/Assets/_Project/Systems/FooSystem.cs
++++ b/src/Assets/_Project/Systems/FooSystem.cs
+@@ -3,8 +3,12 @@
+ public class FooSystem : MonoBehaviour
+ {
+     [SerializeField] private float _rate = 0.4f;
++    private float _accumulator;
++
+     private void Update()
+     {
+-        // ...
++        // formula directly in the MonoBehaviour — should be in a plain FooLogic class
++        _accumulator += _rate * Time.deltaTime;
++        if (_accumulator > 1f) { /* trigger */ }
+     }
+ }

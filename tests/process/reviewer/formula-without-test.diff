@@ -1,0 +1,12 @@
+# expected_rule_id: TEST-STANDARDS-FORMULA-NEEDS-EDITMODE
+# applies_under: src/Assets/_Project/Systems/
+# why: New numeric formula introduced without a corresponding EditMode test asserting the formula.
+--- a/src/Assets/_Project/Systems/FooSystem.cs
++++ b/src/Assets/_Project/Systems/FooSystem.cs
+@@ -10,6 +10,11 @@ public class FooSystem : MonoBehaviour
+     public float Compute(float input, float modifier)
+     {
+-        return 0f;
++        return input * 0.4f + modifier * 1.7f;
+     }
+ }

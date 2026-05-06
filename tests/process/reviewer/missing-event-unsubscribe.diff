@@ -1,0 +1,15 @@
+# expected_rule_id: GAMEPLAY-CODE-EVENT-SYMMETRY
+# applies_under: src/Assets/_Project/Systems/
+# why: Subscribed in OnEnable but did not unsubscribe in OnDisable.
+--- a/src/Assets/_Project/Systems/FooSystem.cs
++++ b/src/Assets/_Project/Systems/FooSystem.cs
+@@ -5,6 +5,11 @@ public class FooSystem : MonoBehaviour
+     [SerializeField] private BarChannel _bar;
++
++    private void OnEnable()
++    {
++        _bar.OnFired += HandleBar;
++    }
++
++    private void HandleBar(int payload) { }
+ }

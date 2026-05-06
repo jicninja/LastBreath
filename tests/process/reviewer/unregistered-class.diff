@@ -1,0 +1,11 @@
+# expected_rule_id: REGISTRY-DRIFT-UNREGISTERED-CLASS
+# applies_under: src/Assets/_Project/Systems/
+# why: New class added without a CLASS-* entry in docs/registry/architecture.yaml.
+--- /dev/null
++++ b/src/Assets/_Project/Systems/QuxSystem.cs
+@@ -0,0 +1,5 @@
++using UnityEngine;
++
++public class QuxSystem : MonoBehaviour
++{
++}
