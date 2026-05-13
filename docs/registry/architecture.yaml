@@ -7,10 +7,14 @@
 #   PILLAR-NN             design pillars (GDD)
 #   MECH-<NAME>           mechanics (GDD)
 #   SCENE-<NAME>          playable scenes (GDD)
+#   LAYOUT-<token>-<name> sub-sections of a scene (level design); see ADR-0007
+#   ART-<scope>-<name>    3D art assets (asset design); see ADR-0008
+#   TAG-<NAME>            gameplay tags declared in TagManager.asset
 #   SYS-<NAME>            systems (SDD)
 #   CLASS-<Name>          concrete classes (TDD)
 #   CFG-<NAME>            configuration ScriptableObjects
 #   EVT-<name>            shared events
+#   {DOMAIN}-{NAME}       rules in .claude/rules/<domain>.md (e.g., HARNESS-LOOP-*); see ADR-0011
 #
 # Once created, an ID is never renamed. If something stops existing,
 # status: deprecated and the entry stays.
@@ -19,6 +23,50 @@ version: 1
 project: last-breath-poc
 engine: unity
 render_pipeline: urp
+
+# ---------------------------------------------------------------------------
+# Pinned tooling. Single source of truth; mirrored by
+# docs/engine-reference/unity/VERSION.md, docs/engine-reference/blender/VERSION.md,
+# docs/engine-reference/mcp/VERSIONS.md, and .mcp.json. Drift is checked by
+# scripts/check-runtime-versions.py at SessionStart (advisory).
+#
+# Rationale: ADR-0009. Bumps are plan-gated. The "no-stale-APIs" rule in
+# AGENTS.md requires a Context7 query before any code call into a library
+# pinned below.
+tooling:
+  unity:
+    version: 6000.0.32f1            # Unity 6 LTS; Tech Stream is out of scope per ADR-0009
+    track: 6-lts
+    packages:
+      render_pipelines_universal: 17.0.3
+      inputsystem: 1.11.2
+      cinemachine: 3.1.2
+      test_framework: 1.4.5
+      ide_rider: 3.0.32
+      addressables: 2.3.16          # recommended-but-not-enforced (advisory rule)
+      vcontainer: 1.16.9            # DI; LifetimeScope is the only composition root
+      unitask: 2.5.10               # preferred async runtime under src/Assets/_Project/**
+  blender:
+    version: 5.1.0                  # fallback: latest 4.x LTS if 5.1 not yet stable upstream
+    track: stable
+    fallback_track: 4-lts
+    gltf_exporter: bundled-with-blender
+  mcp_servers:
+    context7:
+      source: "@upstash/context7-mcp"
+      pin: "1.0.14"
+      pin_type: npm
+    unity_mcp:
+      source: "justinpbarnett/unity-mcp"
+      pin: null                     # to be filled at first install by unity-specialist
+      pin_type: git_sha
+    blender_mcp:
+      source: "<upstream>/blender-mcp"
+      pin: null                     # to be filled at first install by asset-designer
+      pin_type: git_sha
+  di_framework: vcontainer
+  async_runtime: unitask
+  asset_management: addressables_advisory
 
 # ---------------------------------------------------------------------------
 pillars:
@@ -140,20 +188,57 @@ scenes:
     title: Corridor C-7
     target_duration_seconds: 240
     doc: docs/gdd/last-breath-poc-gdd.md#first-playable-scene
+    # layout: docs/levels/corredor-c7/corredor-c7.layout.yaml
+    # ^ uncomment once scaffold-level has been run for this scene (Wave B of ADR-0007).
     status: active
+
+# ---------------------------------------------------------------------------
+# Layouts are named sub-sections of a scene. Identity-only entries that the
+# scene spec (docs/levels/<scene>/<scene>.layout.yaml) references. Owned by
+# the `level-designer` role. See ADR-0007 and docs/process/level-design.md.
+#
+# Entries appear here once a scaffold-level run (or a manual addition) introduces
+# them; until then this section may be empty.
+layouts: []
+
+# ---------------------------------------------------------------------------
+# Art assets are 3D models produced via blender-mcp. Identity-only entries;
+# runtime state (approved, imported_at, imported_hash) lives in each asset's
+# manifest under art/<asset>/manifest.yaml. Owned by the
+# `asset-designer` role. See ADR-0008 and docs/process/asset-design.md.
+art_assets: []
+
+# ---------------------------------------------------------------------------
+# Gameplay tags declared in src/ProjectSettings/TagManager.asset. Identity-only
+# entries; the live values live in the TagManager asset. Owned by the
+# `level-designer` role (asset of record) and consumed by `gameplay-programmer`
+# (the generated Tags constants class or TagDefinition SOs). Built-in Unity
+# tags (Untagged, Respawn, Finish, EditorOnly, MainCamera, Player,
+# GameController) are reserved by the engine and do not appear here.
+# See docs/process/unity-patterns.md §17 and the rules
+# LEVEL-DESIGN-TAGS-REGISTERED + GAMEPLAY-CODE-NO-TAG-STRING-LITERALS.
+tags: []
 
 # ---------------------------------------------------------------------------
 systems:
   - id: SYS-GAME
     name: GameManager
+    # GameState enum extends to include Loading (see SDD §game-state-flow and ADR-0005).
+    # During Loading, gameplay systems must not publish events; SaveSystem orchestrates restore.
+    # CLASS-PocCheckpointController is a deprecated legacy class kept in the registry
+    # for identity continuity. New code goes through SaveSystem (ADR-0005).
     doc: docs/sdd/last-breath-poc-sdd.md#gamemanager
     classes: [CLASS-GameManager, CLASS-PocCheckpointController]
     publishes: [EVT-game-state-changed]
     subscribes: []
   - id: SYS-PLAYER
     name: PlayerController
+    # Input via com.unity.inputsystem 1.11.2 only. Legacy Input.* is forbidden by ADR-0010.
+    # Movement is 3D on the XZ plane (Y locked). The visual root rotation is owned by
+    # SYS-CAMERA's PlayerBillboard, not by this system.
     doc: docs/sdd/last-breath-poc-sdd.md#playercontroller
     classes: [CLASS-PlayerController, CLASS-PlayerState]
+    config: [CFG-PLAYER-MOVEMENT, CFG-PLAYER-INPUT]
     publishes: []
     subscribes: [EVT-oxygen-changed, EVT-agitation-changed]
   - id: SYS-OXYGEN
@@ -224,6 +309,75 @@ systems:
     classes: [CLASS-LightingAndVFXController]
     publishes: []
     subscribes: [EVT-presence-event-fired, EVT-agitation-changed]
+  - id: SYS-FLAGS
+    name: FlagSystem
+    # Custodian of persistent boolean world state (graphic-adventure unlocks).
+    # See ADR-0004 for why this is a MonoBehaviour custodian, not SO event channels.
+    doc: docs/sdd/last-breath-poc-sdd.md#flagsystem
+    classes: [CLASS-FlagSystem, CLASS-FlagGate, CLASS-FlagSetter]
+    config: [CFG-FLAG]
+    publishes: [EVT-flag-changed]
+    subscribes: []
+  - id: SYS-NARRATIVE
+    name: NarrativeDirector
+    # Evaluates narrative cues from flag transitions. Mirrors PresenceDirector.
+    doc: docs/sdd/last-breath-poc-sdd.md#narrativedirector
+    classes: [CLASS-NarrativeDirector]
+    config: [CFG-NARRATIVE-CUE]
+    publishes: [EVT-narrative-cue-fired]
+    subscribes: [EVT-flag-changed]
+  - id: SYS-SAVE
+    name: SaveSystem
+    # DTO snapshot save/restore. Only system permitted to touch disk. See ADR-0005.
+    # Save points are flag-driven (FlagDefinition.isSavePoint = true).
+    doc: docs/sdd/last-breath-poc-sdd.md#savesystem
+    classes:
+      - CLASS-SaveSystem
+      - CLASS-SaveData
+      - CLASS-IPersistentInteractable
+      - CLASS-InteractableRegistry
+    publishes: [EVT-save-completed, EVT-save-restored]
+    subscribes: [EVT-flag-changed]
+  - id: SYS-TERMINAL
+    name: TerminalSystem
+    # Diegetic wall-mounted PC consoles. Hosts the chat UI and per-terminal inbox.
+    # Peer of PanelInteractable; does NOT extend SYS-INTERACTOR.
+    doc: docs/sdd/last-breath-poc-sdd.md#terminalsystem
+    classes: [CLASS-TerminalSystem, CLASS-TerminalInteractable]
+    publishes: [EVT-terminal-opened, EVT-terminal-closed]
+    subscribes: [EVT-dialogue-response-ready, EVT-ai-message-delivered]
+  - id: SYS-DIALOGUE
+    name: DialogueSystem
+    # Ship AI live channel + inbox routing. Owns mandate/integrity/budget state.
+    # Single seam to IDialogueTransport (interface, not a registry system). See ADR-0006.
+    doc: docs/sdd/last-breath-poc-sdd.md#dialoguesystem
+    classes:
+      - CLASS-DialogueSystem
+      - CLASS-DialogueLogic
+      - CLASS-DialogueContext
+      - CLASS-DialogueCueDefinition
+      - CLASS-IDialogueTransport
+      - CLASS-OllamaHttpTransport
+      - CLASS-MockTransport
+    config: [CFG-DIALOGUE-AI, CFG-LLM-TRANSPORT, CFG-DIALOGUE-CUE]
+    publishes: [EVT-dialogue-response-ready, EVT-ai-message-delivered]
+    subscribes:
+      - EVT-flag-changed
+      - EVT-oxygen-changed
+      - EVT-agitation-changed
+      - EVT-zone-changed
+      - EVT-presence-event-fired
+      - EVT-terminal-opened
+  - id: SYS-CAMERA
+    name: CameraSystem
+    # Cinemachine 3 side-rig (perspective, FOV ~35) + URP Volume Depth of Field in Bokeh mode.
+    # Owns the player visual root's Y-axis billboard. Presentation infrastructure: no events.
+    # See ADR-0010.
+    doc: docs/sdd/last-breath-poc-sdd.md#camerasystem
+    classes: [CLASS-CameraRig, CLASS-PlayerBillboard, CLASS-CameraDofDriver]
+    config: [CFG-CAMERA-RIG, CFG-CAMERA-DOF]
+    publishes: []
+    subscribes: []
 
 # ---------------------------------------------------------------------------
 configs:
@@ -243,6 +397,53 @@ configs:
     name: ObjectiveDefinition
     type: ScriptableObject
     doc: docs/sdd/last-breath-poc-sdd.md#objectivedefinition
+  - id: CFG-FLAG
+    name: FlagDefinition
+    type: ScriptableObject
+    doc: docs/tdd/last-breath-poc-tdd.md#flagdefinition
+  - id: CFG-NARRATIVE-CUE
+    name: NarrativeCueDefinition
+    type: ScriptableObject
+    doc: docs/tdd/last-breath-poc-tdd.md#narrativecuedefinition
+  - id: CFG-DIALOGUE-AI
+    name: DialogueAIConfig
+    # Persona block, format rules, degradation curves, fallback offline replies.
+    # Identity/tuning only; no runtime mutation per ADR-0004.
+    type: ScriptableObject
+    doc: docs/tdd/last-breath-poc-tdd.md#dialogueaiconfig
+  - id: CFG-LLM-TRANSPORT
+    name: LlmTransportConfig
+    # Default endpoint, model name, timeout budget. See ADR-0006 for resolution order.
+    type: ScriptableObject
+    doc: docs/tdd/last-breath-poc-tdd.md#llmtransportconfig
+  - id: CFG-DIALOGUE-CUE
+    name: DialogueCueDefinition
+    # Inbox messages keyed to a terminal, gated by required flags. Consumed only by SYS-DIALOGUE.
+    type: ScriptableObject
+    doc: docs/tdd/last-breath-poc-tdd.md#dialoguecuedefinition
+  - id: CFG-PLAYER-MOVEMENT
+    name: PlayerMovementConfig
+    # Walk / run speeds for SYS-PLAYER. Identity + tuning only per ADR-0004.
+    type: ScriptableObject
+    doc: docs/tdd/last-breath-poc-tdd.md#playermovementconfig
+  - id: CFG-PLAYER-INPUT
+    name: PlayerControls.inputactions
+    # Committed Input System action asset at src/Assets/_Project/Input/PlayerControls.inputactions.
+    # One action map (Gameplay) with Move / Run / Interact / Pause bound to Keyboard + Gamepad.
+    # Authored once via the Unity .inputactions editor; do not hand-edit. See ADR-0010.
+    type: InputActionAsset
+    doc: docs/tdd/last-breath-poc-tdd.md#playercontrolsinputactions
+  - id: CFG-CAMERA-RIG
+    name: CameraRigConfig
+    # Position offset and per-axis damping for the Cinemachine 3 side-rig. See ADR-0010.
+    type: ScriptableObject
+    doc: docs/tdd/last-breath-poc-tdd.md#camerarigconfig
+  - id: CFG-CAMERA-DOF
+    name: CameraDofConfig
+    # Bokeh DOF tuning (aperture, focalLength, bladeCount) consumed by CameraDofDriver.
+    # focusDistance is driven at runtime, not configured. See ADR-0010.
+    type: ScriptableObject
+    doc: docs/tdd/last-breath-poc-tdd.md#cameradofconfig
 
 # ---------------------------------------------------------------------------
 # Shared events. Abbreviated payload; details in SDD.
@@ -271,3 +472,77 @@ events:
   - id: EVT-objective-completed
     publisher: SYS-OBJECTIVE
     payload: { objective_id: string }
+  - id: EVT-flag-changed
+    publisher: SYS-FLAGS
+    payload: { flag_id: string, value: bool }
+  - id: EVT-narrative-cue-fired
+    publisher: SYS-NARRATIVE
+    payload: { cue_id: string }
+  - id: EVT-save-completed
+    publisher: SYS-SAVE
+    payload: { slot: string }
+  - id: EVT-save-restored
+    publisher: SYS-SAVE
+    payload: {}
+  - id: EVT-terminal-opened
+    publisher: SYS-TERMINAL
+    payload: { terminal_id: string }
+  - id: EVT-terminal-closed
+    publisher: SYS-TERMINAL
+    payload: { terminal_id: string }
+  - id: EVT-dialogue-response-ready
+    publisher: SYS-DIALOGUE
+    payload: { terminal_id: string, speech: string, tags: list }
+  - id: EVT-ai-message-delivered
+    publisher: SYS-DIALOGUE
+    payload: { terminal_id: string, message_id: string }
+
+# ---------------------------------------------------------------------------
+# Rule IDs registered for stability. The rule bodies live in
+# .claude/rules/<scope>.md. This section is the canonical location for
+# rule_id stability; promoting an observation to a new rule
+# (HARNESS-LOOP-PROMOTE-RECURRING-FEEDBACK) also appends an entry here.
+# Backfilling existing rule families (ASSET-DESIGN-*, LEVEL-DESIGN-*,
+# GAMEPLAY-CODE-*, TEST-STANDARDS-*, DESIGN-DOCS-*, PROTOTYPE-CODE-*) is its
+# own housekeeping plan; ADR-0011 explicitly defers it.
+rules:
+  - id: HARNESS-LOOP-REVIEW-BEFORE-COMPLETION
+    file: .claude/rules/harness-loop.md
+    status: active
+    purpose: Gameplay and level diffs are not complete until the matching /review-* skill returned clean (or a recorded skip).
+    cite_adr: ADR-0011
+  - id: HARNESS-LOOP-RUNTIME-PROBE-BEFORE-COMPLETION
+    file: .claude/rules/harness-loop.md
+    status: active
+    purpose: Gameplay changes require a runtime-probe artifact referenced in plan acceptance; manual ritual until PLAN-016-spike resolves the automated probe.
+    cite_adr: ADR-0011
+  - id: HARNESS-LOOP-PROMOTE-RECURRING-FEEDBACK
+    file: .claude/rules/harness-loop.md
+    status: active
+    purpose: A recurring observation is promoted to a rule, a linter, or an ADR before the current session closes.
+    cite_adr: ADR-0011
+  - id: EXEC-PLAN-SELF-CONTAINED
+    file: .claude/rules/exec-plans.md
+    status: active
+    purpose: An ExecPlan reads end-to-end without any external file; internal IDs may be cited only if inline-defined in Context and Orientation with full detail.
+    cite_adr: ADR-0012
+  - id: EXEC-PLAN-LIVING-DOCUMENT
+    file: .claude/rules/exec-plans.md
+    status: active
+    purpose: While active, the four mutable sections (Progress, Surprises & Discoveries, Decision Log, Outcomes & Retrospective) are updated at every commit; once done, the whole file is immutable except to mark superseded.
+    cite_adr: ADR-0012
+  - id: EXEC-PLAN-OBSERVABLE-OUTCOME
+    file: .claude/rules/exec-plans.md
+    status: active
+    purpose: Validation and Acceptance is written as observable behaviour, not code presence; the runtime-probe artifact path is cited here.
+    cite_adr: ADR-0012
+  - id: EXEC-PLAN-MANDATORY-SECTIONS
+    file: .claude/rules/exec-plans.md
+    status: active
+    purpose: Every ExecPlan at every status has the twelve top-level headings present verbatim and in order; placeholder bodies are allowed.
+    cite_adr: ADR-0012
+  - id: EXEC-PLAN-FORMAT-DISCIPLINE
+    file: .claude/rules/exec-plans.md
+    status: active
+    purpose: Three grep-able bans on the ExecPlan body — checklists only in Progress, tables only in Progress, no nested code fences.
+    cite_adr: ADR-0012

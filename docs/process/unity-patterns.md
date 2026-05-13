@@ -3,10 +3,10 @@ id: PROCESS-UNITY-PATTERNS
 type: reference
 layer: process
 status: active
-related: [GAMEPLAY-CODE, TEST-STANDARDS]
+related: [GAMEPLAY-CODE, TEST-STANDARDS, LEVEL-DESIGN]
 ---
 
-Reference, not tutorial. 13 patterns. Each section: when to use, minimal example, anti-pattern, rule cross-ref. Examples use `FooSystem` / `BarConfig` / `BazEvent` only.
+Reference, not tutorial. 17 patterns. Each section: when to use, minimal example, anti-pattern, rule cross-ref. Examples use `FooSystem` / `BarConfig` / `BazEvent` only.
 
 ## 1. Project layout & .asmdef boundaries
 
@@ -76,9 +76,14 @@ Reviewer rule_id: UNITY-PATTERN-MONOBEHAVIOUR-SPLIT
 
 ## 3. ScriptableObject patterns
 
-**When to use:** Three subtypes only. `Config` for tunables, `RuntimeSet<T>` for live registries, `EventChannel<T>` for typed buses. Pick the narrowest fit.
+**When to use:** Two subtypes only.
 
-**Minimal example:**
+1. **Config / tuning SOs** — designer-tunable numbers and references. Read at `Awake`, never mutated at runtime. Examples: `OxygenConfig`, `AgitationConfig`, `LlmTransportConfig`, `CameraRigConfig`.
+2. **Identity / metadata SOs** — stable handles the gameplay layer compares by *reference*, never by string. Read-only at runtime. Examples: `FlagDefinition`, `NarrativeCueDefinition`, `DialogueCueDefinition`, `PresenceEventDefinition`, `MotherAvailabilityRule`.
+
+Runtime state for gameplay flags, world events, and inter-system signals does **not** live in a ScriptableObject. It lives in the relevant MonoBehaviour custodian (`FlagSystem`, `NarrativeDirector`, `DialogueSystem`, `PresenceDirector`) which raises C# events. SO-based event channels and SO-based runtime registries are banned by ADR-0004 (`GAMEPLAY-CODE-FLAG-NO-SO-EVENT-CHANNEL`).
+
+**Minimal example (tuning SO):**
 
 ```csharp
 [CreateAssetMenu(menuName = "LastBreath/BarConfig")]
@@ -91,16 +96,47 @@ public sealed class BarConfig : ScriptableObject
 }
 ```
 
-**Anti-pattern:**
+**Minimal example (identity SO):**
 
 ```csharp
-public sealed class BarConfig : ScriptableObject
+[CreateAssetMenu(menuName = "LastBreath/BarDefinition")]
+public sealed class BarDefinition : ScriptableObject
 {
-    public float CurrentValue; // mutated at runtime — leaks state across sessions in editor.
+    // Identity-only fields. Read at scene load by the custodian
+    // (e.g., FlagSystem reads FlagDefinition.defaultValue once at Awake).
+    public string id;
+    public string displayName;
+    public bool defaultValue;
 }
 ```
 
-**Rule cross-ref:** —
+**Anti-patterns:**
+
+```csharp
+// 1. Mutable runtime state on a SO — leaks across sessions in the editor.
+public sealed class BarConfig : ScriptableObject
+{
+    public float CurrentValue;
+}
+
+// 2. SO event channel — forbidden by ADR-0004.
+public sealed class BazEventChannel : ScriptableObject
+{
+    public event Action<BazEvent> Raised;
+    public void Raise(BazEvent e) => Raised?.Invoke(e);
+}
+
+// 3. SO runtime registry (RuntimeSet<T>) — also forbidden by ADR-0004.
+//    Live collections of "things currently in the world" belong to a
+//    MonoBehaviour custodian (e.g., InteractableRegistry), not a SO.
+public sealed class FooRuntimeSet : ScriptableObject
+{
+    public List<FooBehaviour> Items;
+    public void Add(FooBehaviour f) => Items.Add(f);
+}
+```
+
+**Rule cross-ref:** `.claude/rules/gameplay-code.md` (`GAMEPLAY-CODE-FLAG-NO-SO-EVENT-CHANNEL`); ADR-0004; ADR-0006 for `MotherAvailabilityRule` as an identity SO.
 
 Reviewer rule_id: UNITY-PATTERN-SCRIPTABLE-OBJECT-CONFIG
 
@@ -140,20 +176,22 @@ Reviewer rule_id: UNITY-PATTERN-UPDATE-LOOP
 ```csharp
 public sealed class FooBehaviour : MonoBehaviour
 {
-    [SerializeField] private BazEventChannel _channel;
-    private void OnEnable()  { _channel.Raised += HandleRaised; }
-    private void OnDisable() { _channel.Raised -= HandleRaised; }
+    [Inject] private BarSystem _bar;
+    private void OnEnable()  { _bar.OnRaised += HandleRaised; }
+    private void OnDisable() { _bar.OnRaised -= HandleRaised; }
     private void HandleRaised(BazEvent e) { /* ... */ }
 }
 ```
 
+The publisher is a sibling system resolved through the VContainer `LifetimeScope` (ADR-0009) and exposes a plain C# `event Action<T>`. ScriptableObject event channels are banned by ADR-0004 (see pattern 3).
+
 **Anti-pattern:**
 
 ```csharp
-private void OnEnable() { _channel.Raised += e => DoStuff(e); } // cannot unsubscribe.
+private void OnEnable() { _bar.OnRaised += e => DoStuff(e); } // cannot unsubscribe.
 ```
 
-**Rule cross-ref:** `.claude/rules/gameplay-code.md` (Events).
+**Rule cross-ref:** `.claude/rules/gameplay-code.md` (Events); ADR-0004 (`GAMEPLAY-CODE-FLAG-NO-SO-EVENT-CHANNEL`).
 
 Reviewer rule_id: UNITY-PATTERN-EVENT-SYMMETRY
 
@@ -270,17 +308,32 @@ Reviewer rule_id: UNITY-PATTERN-SERIALIZATION
 
 ## 10. Cross-scene references
 
-**When to use:** Sibling systems via `GameSystemsRoot`; live registries via `RuntimeSet<T>`; fire-and-forget via `EventChannel<T>`.
+**When to use:** Sibling systems resolved through the scene's VContainer `LifetimeScope` (ADR-0009). Live registries belong to a MonoBehaviour custodian (e.g., `InteractableRegistry`), not a ScriptableObject. Fire-and-forget signalling uses C# events on the publishing system, not SO event channels (forbidden by ADR-0004; see pattern 3).
 
 **Minimal example:**
 
 ```csharp
-public sealed class GameSystemsRoot : MonoBehaviour
+using VContainer;
+using VContainer.Unity;
+using UnityEngine;
+
+public sealed class GameLifetimeScope : LifetimeScope
 {
-    [SerializeField] private FooBehaviour _foo;
-    [SerializeField] private FooRuntimeSet _activeFoos; // ScriptableObject collection
-    [SerializeField] private BazEventChannel _bazChannel;
-    public FooBehaviour Foo => _foo;
+    // Inspector-bound config SOs (identity / tuning, no runtime mutation).
+    [SerializeField] private BarConfig _barConfig;
+
+    protected override void Configure(IContainerBuilder builder)
+    {
+        builder.RegisterInstance(_barConfig);
+        builder.RegisterComponentInHierarchy<FooBehaviour>();
+        builder.RegisterComponentInHierarchy<BarBehaviour>();
+    }
+}
+
+public sealed class BarBehaviour : MonoBehaviour
+{
+    [Inject] private FooBehaviour _foo;
+    // Cross-system reference resolved by the scope at runtime.
 }
 ```
 
@@ -288,9 +341,12 @@ public sealed class GameSystemsRoot : MonoBehaviour
 
 ```csharp
 private void Start() { var foo = GameObject.Find("Foo").GetComponent<FooBehaviour>(); }
+// Also anti-pattern:
+//   - a manual GameSystemsRoot MonoBehaviour with a [SerializeField] slot per system.
+//   - SO-backed RuntimeSet<T> / EventChannel<T> for runtime gameplay state (ADR-0004).
 ```
 
-**Rule cross-ref:** `.claude/rules/gameplay-code.md` (Forbidden in systems).
+**Rule cross-ref:** `.claude/rules/gameplay-code.md` (Forbidden in systems; `GAMEPLAY-CODE-DI-LIFETIMESCOPE-ONLY-AT-ROOT`; `GAMEPLAY-CODE-FLAG-NO-SO-EVENT-CHANNEL`).
 
 Reviewer rule_id: UNITY-PATTERN-CROSS-SCENE
 
@@ -378,3 +434,141 @@ public sealed class FooBehaviour : MonoBehaviour
 **Rule cross-ref:** `.claude/rules/test-standards.md`.
 
 Reviewer rule_id: UNITY-PATTERN-TESTABILITY
+
+## 14. Prefab discipline
+
+**When to use:** Every GameObject that appears more than once or that a system instantiates at runtime is a prefab under `src/Assets/_Project/Prefabs/<Category>/`. Composition is via nested prefabs, not copy-paste.
+
+**Minimal example:**
+
+```text
+src/Assets/_Project/Prefabs/
+  Level/CorridorPanel/CorridorPanel.prefab              // base
+  Level/CorridorPanel/CorridorPanel.Damaged.prefab      // variant (see pattern 15)
+  Player/Player.prefab                                  // composes nested PlayerHand.prefab
+```
+
+In a `.unity` scene, every instance of `CorridorPanel` appears as a prefab instance — the YAML carries `m_PrefabInstance` and a non-zero `m_CorrespondingSourceObject`. Edits flow back to the prefab; scene-only overrides are explicit and minimal.
+
+**Anti-pattern:**
+
+```text
+# Three copies of "CorridorPanel" in CorridorC7.unity, no m_PrefabInstance —
+# someone Unpack-ed the prefab and edited each in isolation. Now a fix to
+# the base panel needs three manual edits. Forbidden in committed scenes.
+```
+
+**Rule cross-ref:** `.claude/rules/level-design.md` (`LEVEL-DESIGN-PREFAB-DISCIPLINE`).
+
+Reviewer rule_id: UNITY-PATTERN-PREFAB-DISCIPLINE
+
+## 15. Prefab variants
+
+**When to use:** A family of "same thing, different config" objects (intact / damaged / dark; common / rare / boss). One base prefab; siblings are variants, not flat duplicates.
+
+**Minimal example:**
+
+```text
+CorridorPanel.prefab           # base — mesh, material, collider, FlagSetter component
+CorridorPanel.Damaged.prefab   # variant — overrides material slot + adds Sparks particle
+CorridorPanel.Dark.prefab      # variant — overrides emission color, disables Light child
+```
+
+Each variant's `.prefab` YAML carries `m_VariantParent` pointing at the base. A change to the base's mesh propagates to all variants; only the explicitly-overridden fields stay variant-local.
+
+**Anti-pattern:**
+
+```text
+# Three independent prefabs CorridorPanelIntact.prefab, CorridorPanelDamaged.prefab,
+# CorridorPanelDark.prefab — produced by Duplicate. m_VariantParent: fileID: 0
+# in all three. Drift between siblings is now guaranteed.
+```
+
+**Rule cross-ref:** `.claude/rules/level-design.md` (`LEVEL-DESIGN-VARIANTS-OVER-DUPLICATION`).
+
+Reviewer rule_id: UNITY-PATTERN-VARIANTS
+
+## 16. GPU instancing & material discipline
+
+**When to use:** Any material applied to a mesh that appears more than once in a frame (props, panels, modular geometry). Enable "Enable GPU Instancing" on the material; in `.mat` YAML this is `m_EnableInstancingVariants: 1`. Static, non-moving geometry additionally gets the `Static` flag for batching.
+
+**Minimal example:**
+
+```text
+# CorridorWall.mat (URP/Lit shader, repeated 40x in the corridor scene)
+m_EnableInstancingVariants: 1
+# CorridorWall GameObject in the scene: Static flag enabled.
+```
+
+Per-renderer tweaks use `MaterialPropertyBlock`, not new material instances:
+
+```csharp
+public sealed class FooHighlight : MonoBehaviour
+{
+    [SerializeField] private Renderer _renderer;
+    private MaterialPropertyBlock _mpb;
+    private void OnEnable() { _mpb ??= new MaterialPropertyBlock(); }
+    public void SetTint(Color c) { _renderer.GetPropertyBlock(_mpb); _mpb.SetColor("_BaseColor", c); _renderer.SetPropertyBlock(_mpb); }
+}
+```
+
+**Anti-pattern:**
+
+```csharp
+// Breaks batching: assigning .material clones the material per-renderer.
+_renderer.material.color = Color.red;
+```
+
+```text
+# CorridorWall.mat with m_EnableInstancingVariants: 0 despite 40 copies in-scene.
+# Each instance is its own draw call; URP can't batch.
+```
+
+Opt-out cases (transparent particles, sprites, materials authored by a third party) get a one-line note in the matching art asset's `manifest.notes` and the verifier accepts them.
+
+**Rule cross-ref:** `.claude/rules/level-design.md` (`LEVEL-DESIGN-GPU-INSTANCING-ENABLED`).
+
+Reviewer rule_id: UNITY-PATTERN-GPU-INSTANCING
+
+## 17. Tags & layers
+
+**When to use:** Tags identify *what* an object is for gameplay queries. Layers define *which* set an object belongs to for physics, raycasts, and rendering masks. The two are not interchangeable.
+
+**Minimal example:**
+
+```text
+# Layer (physics): "InteractableMask" defined in TagManager.asset; PlayerInteractor
+# raycasts against (1 << LayerMask.NameToLayer("InteractableMask")).
+# Tag (identity): "Breathing Station" declared in TagManager.asset AND registered in
+# docs/registry/architecture.yaml under tags: with id TAG-BREATHING-STATION.
+```
+
+C# never hardcodes tag string literals. Use a generated constants file or a `TagDefinition` ScriptableObject:
+
+```csharp
+// Generated by an Editor MenuItem from TagManager.asset
+public static class Tags
+{
+    public const string BreathingStation = "Breathing Station";
+    public const string OxygenStation    = "Oxygen Station";
+}
+
+// Usage:
+if (other.CompareTag(Tags.BreathingStation)) { /* ... */ }
+```
+
+**Anti-pattern:**
+
+```csharp
+if (other.CompareTag("Breathing Station")) { /* ... */ }     // string literal, drifts silently when the tag is renamed.
+if (other.tag == "Breathing Station") { /* ... */ }          // .tag allocates; CompareTag does not — but the literal is still the real problem.
+```
+
+```text
+# TagManager.asset declares "Breathing Station" but architecture.yaml has no entry
+# under tags:. The reviewer fails the commit: every active tag must be registered.
+```
+
+**Rule cross-ref:** `.claude/rules/level-design.md` (`LEVEL-DESIGN-TAGS-REGISTERED`), `.claude/rules/gameplay-code.md` (`GAMEPLAY-CODE-NO-TAG-STRING-LITERALS`).
+
+Reviewer rule_id: UNITY-PATTERN-TAGS-AND-LAYERS

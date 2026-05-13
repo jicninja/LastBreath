@@ -1,0 +1,10 @@
+# Paste this block under art_assets: in docs/registry/architecture.yaml.
+# Create the top-level art_assets: section if it does not yet exist.
+
+art_assets:
+  - id: {{ART_ID}}
+    name: {{name_kebab}}
+    source: {{SOURCE}}
+    license: {{LICENSE}}
+    manifest: art/{{name_kebab}}/manifest.yaml
+    status: active

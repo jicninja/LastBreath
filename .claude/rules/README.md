@@ -4,10 +4,13 @@ Hard rules layered on top of `AGENTS.md`. Each file is scoped to a path or activ
 
 | File | Scope |
 |---|---|
+| `asset-design.md` | `art/**`, `src/Assets/_Project/Art/**`, registry `art_assets:` (ADR-0008) |
+| `design-docs.md` | `docs/{gdd,sdd,tdd}/**` |
 | `gameplay-code.md` | C# under `src/Assets/_Project/**` |
+| `harness-loop.md` | Cross-cutting; moment-of-completion (ADR-0011) |
+| `level-design.md` | `docs/levels/**`, `src/Assets/Scenes/**.unity`, level prefabs and configs (ADR-0007) |
 | `prototype-code.md` | C# under `src/Assets/_Sandbox/**` |
 | `test-standards.md` | EditMode and PlayMode tests |
-| `design-docs.md` | `docs/{gdd,sdd,tdd}/**` |
 
 ## How rules interact with the reviewer
 

@@ -14,8 +14,8 @@ Reason: the legacy Input Manager is outside the new Input System and mixing the 
 
 | Forbidden | Use |
 |---|---|
-| `GameObject.Find` | Serialized reference or lookup in `GameSystemsRoot` |
-| `FindObjectOfType` | Same (exception: `Awake` of root managers) |
+| `GameObject.Find` | Serialized reference, or resolve via the scene's VContainer `LifetimeScope` (ADR-0009) |
+| `FindObjectOfType` | Same (exception: `Awake` of the scene's `LifetimeScope`, when no other option exists) |
 | `FindGameObjectsWithTag` | A pool registered by the owning system |
 | `Camera.main` in `Update` | Cache in `Awake` |
 
@@ -23,13 +23,13 @@ Reason: the legacy Input Manager is outside the new Input System and mixing the 
 
 | Forbidden | Use |
 |---|---|
-| `Resources.Load` | Serialized reference or Addressables |
+| `Resources.Load` | Serialized reference, or `AssetReference<T>` + Addressables (advisory rule `GAMEPLAY-CODE-ADDRESSABLES-FOR-RUNTIME-LOAD`, ADR-0009) |
 
 ## Global singletons
 
 | Forbidden | Use |
 |---|---|
-| `public static Instance` with auto-init | `GameSystemsRoot` with injected serialized references |
+| `public static Instance` with auto-init | Register on the scene's VContainer `LifetimeScope` and resolve via constructor injection or `[Inject]` (ADR-0009) |
 
 ## Persistence
 

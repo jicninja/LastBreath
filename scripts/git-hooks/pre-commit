@@ -1,0 +1,90 @@
+#!/usr/bin/env bash
+# Pre-commit hook — mechanical enforcement of asset-design, level-design,
+# and gameplay-code rules that have Python verifiers.
+#
+# Rules covered:
+#   ASSET-DESIGN-MANIFEST-REQUIRED       (check-manifest-schema.py)
+#   ASSET-DESIGN-LICENSE-DOCUMENTED      (check-manifest-schema.py)
+#   ASSET-DESIGN-PROVENANCE-DOCUMENTED   (check-manifest-schema.py)
+#   ASSET-DESIGN-SYNC-PARITY             (check-art-sync.py)
+#   LEVEL-DESIGN-GPU-INSTANCING-ENABLED  (check-prefab-discipline.py)
+#   LEVEL-DESIGN-TAGS-REGISTERED         (check-prefab-discipline.py)
+#   GAMEPLAY-CODE-NO-TAG-STRING-LITERALS (check-prefab-discipline.py)
+#
+# Install once per clone:
+#   git config core.hooksPath scripts/git-hooks
+#
+# The hook is skipped entirely if the staged diff does not touch any of
+# the watched paths (art staging, Unity art, prefabs, scenes, layout yamls,
+# TagManager, project scripts, the architecture registry).
+#
+# Override (use sparingly, e.g., for emergency reverts):
+#   LASTBREATH_SKIP_ART_HOOK=1 git commit ...
+
+set -euo pipefail
+
+if [[ "${LASTBREATH_SKIP_ART_HOOK:-0}" == "1" ]]; then
+    echo "pre-commit: LASTBREATH_SKIP_ART_HOOK=1 — skipping pipeline checks."
+    exit 0
+fi
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+cd "$REPO_ROOT"
+
+# Diff-cached gives the set of paths in the staged change.
+STAGED="$(git diff --cached --name-only --diff-filter=ACMR || true)"
+
+needs_check=0
+while IFS= read -r path; do
+    [[ -z "$path" ]] && continue
+    case "$path" in
+        art/*)                                   needs_check=1 ;;
+        src/Assets/_Project/Art/*)               needs_check=1 ;;
+        src/Assets/_Project/Prefabs/*)           needs_check=1 ;;
+        src/Assets/Scenes/*)                     needs_check=1 ;;
+        docs/levels/*.layout.yaml)               needs_check=1 ;;
+        docs/levels/*/*.layout.yaml)             needs_check=1 ;;
+        src/ProjectSettings/TagManager.asset)    needs_check=1 ;;
+        docs/registry/architecture.yaml)         needs_check=1 ;;
+        src/Assets/_Project/Scripts/*)           needs_check=1 ;;
+    esac
+done <<< "$STAGED"
+
+if [[ "$needs_check" -eq 0 ]]; then
+    exit 0
+fi
+
+echo "pre-commit: pipeline paths touched — running validators."
+
+fail=0
+
+if ! python3 scripts/check-manifest-schema.py --quiet; then
+    fail=1
+fi
+
+if ! python3 scripts/check-art-sync.py --quiet; then
+    fail=1
+fi
+
+if ! python3 scripts/check-prefab-discipline.py --quiet; then
+    fail=1
+fi
+
+if [[ "$fail" -ne 0 ]]; then
+    cat >&2 <<'EOF'
+
+pre-commit: pipeline validators reported violations.
+  - Fix the issues above, then re-stage and commit.
+  - To diagnose without the --quiet flag, run:
+        python3 scripts/check-manifest-schema.py
+        python3 scripts/check-art-sync.py
+        python3 scripts/check-prefab-discipline.py
+  - Emergency bypass (do not use for normal work):
+        LASTBREATH_SKIP_ART_HOOK=1 git commit ...
+
+EOF
+    exit 1
+fi
+
+echo "pre-commit: pipeline checks passed."
+exit 0

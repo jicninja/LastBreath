@@ -5,7 +5,7 @@ Accepted patterns for Last Breath. Not an exhaustive guide — just what applies
 ## Folder structure
 
 ```
-Assets/
+src/Assets/
   _Project/
     Art/
     Audio/

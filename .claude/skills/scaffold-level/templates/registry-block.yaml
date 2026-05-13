@@ -1,0 +1,14 @@
+# Paste these blocks into docs/registry/architecture.yaml.
+# - Update the existing scenes: entry for {{SCENE_ID}} with the new `layout:` field.
+# - Append the new entries under layouts: (create the top-level section if it does not yet exist).
+
+scenes:
+  - id: {{SCENE_ID}}
+    title: {{Scene Title}}
+    target_duration_seconds: {{TARGET_SECONDS}}
+    doc: docs/levels/{{name_kebab}}/README.md
+    layout: docs/levels/{{name_kebab}}/{{name_kebab}}.layout.yaml
+    status: active
+
+layouts:
+{{LAYOUTS_REGISTRY_BLOCK}}

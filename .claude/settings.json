@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 scripts/art-staging-queue.py"
+          },
+          {
+            "type": "command",
+            "command": "python3 scripts/check-runtime-versions.py --quiet"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "mcp__blender-mcp__(download_polyhaven_asset|download_sketchfab_model|generate_.*|import_generated_asset.*|set_texture)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 scripts/check-art-sync.py --quiet || echo '[post-tool] art sync drift detected after Blender write — run /verify-art-sync for details'"
+          }
+        ]
+      }
+    ]
+  }
+}

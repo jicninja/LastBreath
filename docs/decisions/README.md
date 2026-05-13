@@ -66,3 +66,18 @@ ADRs are append-only history. Never edit an `accepted` ADR's decision; if it cha
 
 - Always increment from the highest existing `NNNN`. Never reuse numbers.
 - Numbering is global across all ADRs regardless of status.
+
+## Index
+
+Listed for indexing by `scripts/audit-md.py` and for quick navigation. Each ADR's body remains the source of truth; the one-line tag here is just a hook.
+
+- [0001-language-policy-english-only.md](0001-language-policy-english-only.md) — English-only repo.
+- [0002-monobehaviour-vs-plain-csharp-split.md](0002-monobehaviour-vs-plain-csharp-split.md) — MonoBehaviour vs plain-C# split.
+- [0003-soft-reviewer-enforcement.md](0003-soft-reviewer-enforcement.md) — Soft reviewer enforcement model.
+- [0004-flag-and-narrative-event-model.md](0004-flag-and-narrative-event-model.md) — Flag and narrative event model (no SO event channels).
+- [0005-save-system-architecture.md](0005-save-system-architecture.md) — DTO-snapshot save / restore.
+- [0006-transport-and-llm-policy.md](0006-transport-and-llm-policy.md) — LLM transport seam + availability gating.
+- [0007-level-design-authoring-flow.md](0007-level-design-authoring-flow.md) — Level design: spec-after-snapshot via `unity-mcp`.
+- [0008-asset-pipeline.md](0008-asset-pipeline.md) — Asset pipeline: Blender → staging → approval → Unity.
+- [0009-runtime-and-tooling-versions.md](0009-runtime-and-tooling-versions.md) — Runtime and tooling version pins (Unity, packages, VContainer, UniTask).
+- [0010-player-controls-camera-and-dof.md](0010-player-controls-camera-and-dof.md) — Player controls, billboard, side-rig camera with DOF.

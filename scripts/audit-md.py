@@ -90,7 +90,7 @@ def suggest_owner(rel_path: str) -> str | None:
         ("docs/process/", "link from AGENTS.md or .claude/agents/<role>.md"),
         ("docs/engine-reference/", "link from AGENTS.md or .claude/rules/gameplay-code.md"),
         ("docs/registry/", "link from AGENTS.md"),
-        ("docs/superpowers/specs/", "link from docs/plans/<plan>.md when implementation begins"),
+        ("docs/specs/", "link from docs/plans/<plan>.md when implementation begins"),
         (".claude/agents/", "list in .claude/agents/README.md"),
         (".claude/rules/", "list in .claude/rules/README.md"),
         (".claude/skills/", "ensure SKILL.md references it, or remove"),

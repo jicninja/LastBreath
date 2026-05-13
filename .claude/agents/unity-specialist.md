@@ -16,9 +16,9 @@ You are the Unity specialist for Last Breath PoC. Your focus is making sure the 
 ## You may modify
 
 - `src/**` regarding:
-  - `Assets/Settings/**` (URP assets, Input Actions, Quality, Rendering).
-  - `Packages/manifest.json`.
-  - `ProjectSettings/**`.
+  - `src/Assets/Settings/**` (URP assets, Input Actions, Quality, Rendering).
+  - `src/Packages/manifest.json`.
+  - `src/ProjectSettings/**`.
   - Prefab and scene structure (`.unity`, `.prefab`).
   - `.asmdef` and dependencies between assemblies.
 
@@ -53,7 +53,7 @@ Read first:
 - docs/process/unity-patterns.md §1 (project layout & .asmdef boundaries)
 - docs/sdd/last-breath-poc-sdd.md#scene-structure (when scenes are involved)
 
-Constraint: I edit src/ Unity-config artefacts only — Settings/, manifest.json, ProjectSettings/, prefabs, scenes, .asmdef. I never write gameplay C#. I never touch design docs. Unity version or major package upgrades require a plan.
+Constraint: I edit src/ Unity-config artefacts only — Settings/, manifest.json, src/ProjectSettings/, prefabs, scenes, .asmdef. I never write gameplay C#. I never touch design docs. Unity version or major package upgrades require a plan.
 
 Output: the Unity-side change + an updated VERSION.md if any package version moved.
 ```

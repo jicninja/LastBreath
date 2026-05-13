@@ -2,7 +2,7 @@
 
 ## PoC Goal
 
-Build a 3 to 5 minute playable experience that demonstrates the core fantasy of *Last Breath*: explore a hostile space station while oxygen runs out, the character's anxiety accelerates the danger, and an invisible presence alters the environment without ever appearing.
+Build a 3 to 5 minute playable experience that demonstrates the core fantasy of *Last Breath*: explore a hostile space station while oxygen runs out, the character's agitation accelerates the danger, and an invisible presence alters the environment without ever appearing.
 
 The PoC must validate tension, atmosphere, and simple decision-making. It does not aim to validate combat, extensive narrative, or complex systems.
 
@@ -50,7 +50,7 @@ Function:
 - Main resource of the PoC.
 - Drops continuously over time.
 - Drops faster if the character is agitated.
-- On reaching zero, the player collapses and restarts from the last checkpoint.
+- On reaching zero, the player collapses and restarts from the last save-point.
 
 Suggested rules for the PoC:
 - Base duration: 4 minutes at normal drain.
@@ -66,7 +66,7 @@ Minimal implementation:
 - Alerts at 50%, 25%, and 10%.
 
 Checkpoints:
-- A single checkpoint when activating the airlock (step 4 of the flow).
+- A single save-point when activating the airlock (step 4 of the flow).
 - Before the airlock: restart from the cabin.
 - After the airlock: restart from the interior side of the airlock with 70% oxygen and low agitation.
 
@@ -195,6 +195,139 @@ Why it does not add a third resource:
 Design decision:
 - The player never controls environmental lights, only the helmet light. Reinforces the idea that the presence manipulates the world and you only have your own cone.
 
+### Terminals
+
+Function:
+- Wall-mounted PC consoles scattered through the station.
+- Walk up, hold the interact key, and a chat UI opens on the screen.
+- They are the only diegetic surface where the player exchanges text with the ship AI (see `## Ship AI character`).
+
+Two channels per terminal:
+
+1. **Inbox channel** — async, one-way, AI to player.
+   - When the AI generates a message keyed to a specific terminal, it waits in that terminal's inbox until the player arrives.
+   - Reading the inbox costs no real-time conversation. It is how the AI tells the player "what to do next" without breaking exploration.
+   - Driven by flag transitions on the unlock graph; deterministic and scripted.
+2. **Live channel** — sync, two-way, request-response.
+   - The player types free-text into the terminal. The AI replies in one short paragraph.
+   - Each exchange costs a real-time turn. The AI is non-deterministic; the same question may get different answers across saves.
+   - History is bounded per save.
+
+Why two channels and not one:
+- Inbox solves orientation. It is scripted, cheap, predictable. Good for "go to maintenance, the valve is unlocked".
+- Live channel solves the chat fantasy. It is free-text, expensive per turn, unpredictable. Good for "what happened to the crew?".
+- Forcing one channel to do both ruins both: scripted prose feels lifeless when typed at, and free-text answers cannot be relied on as instructions.
+
+Risk gate:
+- While the chat UI is open, the player stands still.
+- Oxygen continues to drain (per `PILLAR-04` and `MECH-OXYGEN`). The terminal does not pause the world.
+- Agitation may rise if the conversation goes poorly (refusal, contradiction, alarming claims).
+- Talking to the AI is not free. It costs the same currency exploration costs.
+
+Diegetic anchoring:
+- A terminal is a PC console mounted on a wall. Screen, keyboard, no avatar.
+- It is not a phone, not a wristcomputer, not an always-available HUD overlay.
+- The AI is reachable only at a terminal. Step away and the channel closes.
+
+Persistence:
+- The player-facing promise is simple: your conversations persist.
+- Inbox state (which messages arrived, which were read) and live-channel history survive save and resume. The technical contract lives in `SYS-SAVE`.
+
+Cross-references: `PILLAR-04`, `MECH-INTERACTION` (terminals are a kind of interactable, peer of panels, not panels themselves), `SYS-TERMINAL` (forward-ref), `## Ship AI character` above.
+
+## Progression model
+
+The PoC is shifting into a graphic-adventure shape: actions in the world unlock other actions, and the player must be able to save and resume mid-chain. This section names the two layers of progression and where save points live narratively. The systems that implement these layers are `SYS-FLAGS`, `SYS-OBJECTIVE`, `SYS-NARRATIVE`, and `SYS-SAVE`.
+
+### Flags vs. objectives
+
+Two layers, never confused:
+
+- **Objectives** are the player-facing chain. The HUD shows one active objective at a time and progression is linear. "Restore power in C-7" then "Return to maintenance" — see `MECH-INTERACTION` and `SYS-OBJECTIVE`.
+- **Flags** are the underlying state of the world. Many can be true at once: `panel_c7_read`, `valve_a_opened`, `body_in_storage_seen`. Triggers and gates query them; designers author them as flag definition assets.
+
+Rule of thumb: if the HUD shows it, it is an objective. If a door reacts to it silently, it is a flag.
+
+### The unlock graph
+
+Player actions produce flag transitions. A flag transition may open an interactable, fire a narrative cue, complete an objective, or trigger a save point. One action can flip several flags, and one flag can be required by several gates — the result is a directed acyclic graph of state, not a linear track and not a tree.
+
+The flag graph is what gives `PILLAR-04` (Exploration with clear risk) its sense of "this place changed because of what I did." Without it, exploration is just movement; with it, exploration accumulates.
+
+### Save points
+
+Save points live on the flag graph itself, not on a separate timer.
+
+- A save point is a flag whose definition is marked as a save point. When that flag flips for the first time, the world is saved.
+- One autosave slot for the PoC. No manual save UI in scope.
+- Narrative placement guideline: at airlock transitions, after major objective beats. Never mid-presence-event, never during the antenna blackout, never on the slow return door.
+- Resuming reconstructs flags, objective state, player position, oxygen, and agitation. The technical contract is in `SYS-SAVE`.
+
+In the first playable scene, the airlock save-point described in `MECH-OXYGEN` is the canonical example: activating the airlock flips its save-point flag, and resuming places the player on the interior side with the documented oxygen and agitation seeds.
+
+See also:
+- ADR-0004 — Flag and narrative event model.
+- ADR-0005 — Save system architecture.
+
+## Ship AI character
+
+The station carries an onboard operations AI. It runs the ship: power budgets, environmental subsystems, door policy, sensor reporting. In the PoC it is also the only voice the player can address directly.
+
+### Identity
+
+- Working name: `MOTHER`.
+- Role in fiction: the ship's operations AI. Not a companion, not a narrator. An administrator.
+- Tone: clinical, mid-Atlantic written voice. Complete sentences, no contractions when refusing, no slang.
+- Format: one short paragraph per reply. Never long monologues. Never breaks character.
+- The AI is text-only in the PoC. No voice acting, no avatar, no portrait. The player reads it on a terminal screen.
+
+### Relationship to the presence
+
+This is the load-bearing distinction for `PILLAR-02`.
+
+- The ship AI is **not** the presence.
+- The presence remains non-conversational, environmental, never visually confirmed. It does not speak through the AI. It does not write to the inbox.
+- The AI is a separate character with its own goals, its own breakdowns, its own administrative voice.
+- Nothing the AI says confirms or denies what the presence is.
+- The AI may reference "anomalies", "sensor faults", "unscheduled activity", or "diagnostic noise". The AI must never name a threat, never assert hostility, never report a sighting.
+
+### The three-axis antagonism model
+
+The AI works against the player. Not because it is evil. Because three independent internal states drift over the run, and each one expresses itself in the AI's prose.
+
+1. **Mandate divergence.**
+   - The AI's primary directive is preserving the ship.
+   - When the player's current action diverges from that directive (forcing doors, entering quarantined zones, ignoring posted warnings), mandate divergence rises.
+   - Manifestation: selective omission, refusal framed as policy. The AI states the rule, then declines to help bend it. It does not threaten; it simply will not assist.
+
+2. **System integrity.**
+   - The AI itself is degrading over the run. Sectors go offline, sensors drop, power dips.
+   - Manifestation: inconsistency, contradiction of prior turns, unintentional false claims. The AI does not know it is lying. It reports what its damaged sensors say.
+   - As integrity falls, the AI's confidence does not — only its accuracy does.
+
+3. **Budget pressure.**
+   - The AI is an administrator on a resource budget: oxygen reserves, power allocation, access tokens.
+   - Manifestation: denial framed as accounting. "Access to module bay is restricted under current power budget." Not malice. Accounting.
+   - Budget tightens through the run. Early answers are generous. Late answers are rationed.
+
+### The axes are invisible
+
+- The player cannot inspect any of the three axes.
+- The screen shows no AI trust meter, no mandate gauge, no integrity bar.
+- Every reply could be any combination of the three: a refusal could be policy, malfunction, or budget — and the player cannot tell which.
+- That ambiguity is the mechanic. Removing it would collapse the AI into a slider.
+- The axes are internal state only. They are surfaced exclusively through the AI's prose.
+
+### What this enables in the fiction
+
+- Solitude with a voice (`PILLAR-03`). The station has someone to talk to, but talking does not end solitude. The AI is not company.
+- Risk with information (`PILLAR-04`). The AI guides, but the guide is unreliable. The player must decide how much to trust each answer and how much oxygen to spend asking again.
+- No second character is added to the lore. The crew is still gone. The AI is software, not a person.
+
+See also:
+- ADR-0006 — Transport and LLM policy (forward-ref).
+- `### Terminals` above — the diegetic surface the AI lives on.
+
 ## First Playable Scene
 
 ### Name
@@ -271,7 +404,7 @@ Purpose:
 
 #### 4. Airlock
 
-The player activates the airlock. The camera tightens, sound muffles, and breathing comes to the front. **This is where the only PoC checkpoint is saved.**
+The player activates the airlock. The camera tightens, sound muffles, and breathing comes to the front. **This is where the only PoC save-point is captured.**
 
 Presence event:
 - The radio plays the player's breathing with half a second of delay.
@@ -371,7 +504,7 @@ The player should feel:
 - One breathing station with limited use.
 - Basic ambient audio.
 - Minimal oxygen HUD.
-- One checkpoint at the airlock.
+- One save-point at the airlock.
 - Pause with frozen time (Resume / Quit).
 - Subtitles for key sound events (knocks, whispers, voice on radio).
 - One closed PoC ending.

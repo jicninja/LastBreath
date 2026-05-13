@@ -1,7 +1,7 @@
 ---
 name: scaffold-mechanic
 user-invocable: true
-description: Scaffold a new mechanic — writes GDD/SDD/TDD/test stubs and prints a YAML block for architecture.yaml. Refuses to overwrite. Never auto-edits the registry. Does not touch docs/plans/ or docs/superpowers/.
+description: Scaffold a new mechanic — writes GDD/SDD/TDD/test stubs and prints a YAML block for architecture.yaml. Refuses to overwrite. Never auto-edits the registry. Does not touch docs/plans/ or docs/specs/.
 ---
 
 # scaffold-mechanic skill
@@ -10,7 +10,7 @@ description: Scaffold a new mechanic — writes GDD/SDD/TDD/test stubs and print
 
 Materialise the recipe in `docs/process/adding-a-mechanic.md` for a new mechanic. Produces all stub files in one shot. The recipe is the contract; this skill is the faster path through it.
 
-**Out of scope:** this skill does not generate plan stubs (`docs/plans/`) and does not write into `docs/superpowers/`. Plans are authored deliberately via the `superpowers:writing-plans` skill when (and only when) the change actually warrants one.
+**Out of scope:** this skill does not generate plan stubs (`docs/plans/`) and does not write into `docs/specs/`. Plans are authored deliberately via the `superpowers:writing-plans` skill when (and only when) the change actually warrants one.
 
 ## Args
 

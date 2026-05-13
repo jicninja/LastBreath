@@ -1,3 +1,10 @@
+---
+id: PLAN-001-pilot-split-oxygen
+type: plan
+status: done
+related: [SYS-OXYGEN, PILLAR-01, PLAN-002]
+---
+
 # Plan 001 - Pilot: split the Oxygen system into the agentic-first format
 
 ## Context

@@ -1,7 +1,7 @@
 ---
 name: scaffold-system
 user-invocable: true
-description: Scaffold a new system that has no player-facing mechanic — writes SDD/TDD/test stubs and prints a YAML block for architecture.yaml. Use for HUD, audio, environment, orchestration systems. Refuses to overwrite. Never auto-edits the registry. Does not touch docs/plans/ or docs/superpowers/.
+description: Scaffold a new system that has no player-facing mechanic — writes SDD/TDD/test stubs and prints a YAML block for architecture.yaml. Use for HUD, audio, environment, orchestration systems. Refuses to overwrite. Never auto-edits the registry. Does not touch docs/plans/ or docs/specs/.
 ---
 
 # scaffold-system skill
@@ -12,7 +12,7 @@ Sibling to `scaffold-mechanic`, for systems that **do not** have a player-facing
 
 Produces SDD doc, TDD doc, EditMode test stub, and a registry YAML block. **Skips the GDD output** because there is no mechanic prose to write.
 
-**Out of scope:** does not generate plan stubs, does not write into `docs/superpowers/`, does not edit `docs/registry/architecture.yaml`. Plans are deliberate; the registry edit is a deliberate paste.
+**Out of scope:** does not generate plan stubs, does not write into `docs/specs/`, does not edit `docs/registry/architecture.yaml`. Plans are deliberate; the registry edit is a deliberate paste.
 
 ## When to use this vs `scaffold-mechanic`
 
